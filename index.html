@@ -33,6 +33,9 @@
   #scene .r{display:block;visibility:hidden}
   #scene .r.on{visibility:visible;animation:pop .25s ease-out}
   @keyframes pop{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+  .kg{color:#7dff2a;text-shadow:0 0 6px rgba(125,255,42,.45)}
+  .kp{color:#ff7eb6;text-shadow:0 0 6px rgba(255,126,182,.55)}
+  .kw{color:#ececec}.kd{color:#8c8c8c}.kr{color:#ff4040}.ky{color:#ffe066}.kb{color:#8fd3ff}.ko{color:#ff9a1f}
   .pk{color:var(--pink);text-shadow:0 0 6px rgba(255,126,182,.55)}
   .cr{color:var(--cream);text-shadow:0 0 5px rgba(244,234,216,.35)}
   .fl{color:var(--flame);text-shadow:0 0 8px var(--flame),0 0 16px #ff7a18;animation:flick .18s infinite alternate}
@@ -93,91 +96,13 @@ const $ = s => document.querySelector(s);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let runId = 0;
 
-/* ---------- build the ASCII scene ---------- */
-function put(str, i, ch){ return str.slice(0,i) + ch + str.slice(i+1); }
-
-function buildCake(){
-  const FW = 36;                                   // field width
-  const pad = (str, off=0) => (" ".repeat(off) + str).padEnd(FW, " ");
-  const candles = [11,15,20,24];
-  let flames = " ".repeat(FW), sticks = " ".repeat(FW);
-  candles.forEach(x => { flames = put(flames,x,"§"); sticks = put(sticks,x,"|"); });
-
-  // top tier  (width 20, offset 8)
-  const T = 20, TO = 8;
-  let tTop = pad("." + "-".repeat(T-2) + ".", TO);
-  candles.forEach(x => tTop = put(tTop,x,"+"));
-  const tScal = pad("(" + "(_)".repeat(6) + ")", TO);
-  const tDeco = ["  o  .  o  .  o  .  o ", " .  o  .  o  .  o  .  "]
-                  .map(d => pad("(" + d.slice(0,T-2).padEnd(T-2) + ")", TO));
-  const tBot = pad("'" + "-".repeat(T-2) + "'", TO);
-
-  // bottom tier (width 32, offset 2)
-  const B = 32, BO = 2;
-  const bTop = pad("." + "-".repeat(B-2) + ".", BO);
-  const bScal = pad("(" + "(_)".repeat(10) + ")", BO);
-  const deco = [" *   .   *   .   *   .   *   .   ", "   .   *   .   *   .   *   .   * ",
-                " *   .   *   .   *   .   *   .   ", "   .   *   .   *   .   *   .   * "]
-               .map(d => pad("(" + d.slice(0,B-2).padEnd(B-2) + ")", BO));
-  const bBot = pad("'" + "-".repeat(B-2) + "'", BO);
-
-  // plate + stand
-  const plate = "(" + "_".repeat(FW-2) + ")";
-  const stand = pad("\\" + "_".repeat(10) + "/", 12);
-  const stem  = pad("||", 17);
-  const foot  = pad("(____)", 15);
-
-  return [flames, sticks, sticks, tTop, tScal, ...tDeco, tDeco[0], tBot,
-          bTop, bScal, ...deco, bBot, plate, stand, stem, foot];
-}
-
-function heart(offsetRows, total){
-  const H = [
-    "  ###   ###  ",
-    " ##### ##### ",
-    "#############",
-    "#############",
-    " ########### ",
-    "  #########  ",
-    "   #######   ",
-    "    #####    ",
-    "     ###     ",
-    "      #      ",
-    "      |      ",
-    "      )      ",
-    "      |      ",
-    "      (      ",
-    "      |      "
-  ];
-  const out = [];
-  for(let i=0;i<total;i++){
-    const k = i - offsetRows;
-    out.push(k>=0 && k<H.length ? H[k] : " ".repeat(13));
-  }
-  return out;
-}
-
-function buildScene(){
-  const cake = buildCake();
-  const total = Math.max(cake.length, 17);
-  const L = heart(0,total), R = heart(2,total);
-  const pad = Math.floor((total - cake.length)/2);   // vertically centre cake
-  const rows = [];
-  for(let i=0;i<total;i++){
-    const c = cake[i-pad] ?? " ".repeat(36);
-    rows.push({ l:L[i], c, r:R[i] });
-  }
-  return rows;
-}
-
+/* ---------- the ASCII scene: sport bike + balloons (generated from a drawing) ---------- */
+const BIKE = [[["w","                                                                                                        "]],[["w","                                                                                                        "]],[["w","      "],["d",":"],["p","-"],["d",":..-"],["p","-"],["d",":                                                                           -"],["p","###*+###=     "]],[["w","     "],["p","#########+                                                                          ##########"],["d",".    "]],[["w","    "],["d","."],["p","##########                                                                          +#########     "]],[["w","     "],["p","+########-                                                                          "],["d","."],["p","########"],["d",":     "]],[["w","      "],["p","*######=                                                                            "],["d","."],["p","*#####"],["d",":      "]],[["w","       "],["p","=####"],["d","-                                                                               "],["p","-##=        "]],[["w","        "],["d","."],["p","+=                                                                                   "],["d","=         "]],[["w","         "],["d","+                                                                   -%%#*+           +         "]],[["w","         "],["d","+                                                                  -%%%%%+          .=         "]],[["w","         "],["d",":-                                                             =@@*@%%%%#           =          "]],[["w","          "],["d","+                                       ."],["g","-=++++++++====--:"],["d",".    *%@@%%%%.           +          "]],[["w","          "],["d","=                                     "],["g","-*#######"],["d","@@@@@@@@@@@@"],["g","%#+-"],["d","-#%%%%%:            -.         "]],[["w","                    "],["d",".:::::::::::::::          ."],["g","*##########"],["d","@@@@@@"],["g","%%%%%%%%##***"],["d","*+=                        "]],[["w","              "],["d","-----::....::::--:.. .:---::.  "],["g","-##################################*=:                     "]],[["w","          "],["g",":-+*"],["d","#:-=+**##"],["g","###########"],["d","#*++=-:.:-*"],["g","#######################################+:"],["d",":-.               "]],[["w","     "],["r",":="],["o","="],["g","#############***##########"],["o","#"],["g","#######"],["d","##"],["g","##########################################"],["d","@@@%.             "]],[["w","      "],["r",". "],["d","."],["g","-++****++===-----------==+"],["o","*#"],["g","##################################################"],["d","%@@#             "]],[["w","           "],["d",".#+****+......  ..:++="],["g","=--="],["o","*+"],["g","--=*##############################################="],["d","+*            "]],[["w","            "],["d","*%*%@#   ---+---   +@@@-  :"],["o","+*"],["g","-"],["d",".-"],["g","=*################################+="],["d","+"],["g","-"],["d","-:-=.  #@@@.          "]],[["w","            "],["d","-@@%*%*+=   *   +=  -@@@:   ."],["o","++"],["d","++=--="],["g","=====*####################*"],["d","==.@%%+-:.*-  +@@@          "]],[["w","            "],["d","@@@*%##%@*- + -+: +  =@%*    .:=++********:"],["g","+#################*:"],["d",":- *#@@= +*:.=  #@@+         "]],[["w","           "],["d",":@@@  #%##%@++:=---===++**###%%#:+++++++++++=-"],["g","=*##*---===+*##-  "],["d","+ +: #%@+: * -. -@@@         "]],[["w","           "],["d","-@@%  +-=%%##%@@%#++++++++++++++:+++********###=+"],["g","="],["d","=---... =*#=  *-*=-+@@#--*==: :@@@         "]],[["w","           "],["d",".@@@  -: :+*%%###%%%#*+@@@+=++**#%%%%%%%%%%%######%@:.    =@@#  + -=--:=:=-+ +  =@@%         "]],[["w","            "],["d","#@@*  =-=::.*++#%%###############%@%%%%%%%%####**+-       @@@-  =-=+==+-+=-=:  @@@-         "]],[["w","            "],["d",".@@@*  :--. + .-=:.-@@@%+++===--::..:=**:                 -@@@-  --: :=..--  .%@@*          "]],[["w","             "],["d",".%@@@-   :--:.   =@@@%                                    -@@@#:   :--:.  .+@@@*           "]],[["w","               "],["d","+@@@@#=-:::-+#@@@@=                                      .*@@@@*=::::=+%@@@%:            "]],[["w","                 "],["d","=%@@@@@@@@@@@#=                                          .+%@@@@@@@@@@@#-              "]],[["w","                    "],["d",":=++*++=:                                                 :=++*+=-.                 "]]];
 function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
 function renderScene(){
-  const rows = buildScene();
-  const el = $("#scene");
-  el.innerHTML = rows.map(({l,c,r}) => {
-    const cHtml = esc(c).replace(/§/g,'<span class="fl">(</span>');
-    return `<span class="r"><span class="pk sway">${esc(l)}</span>  <span class="cr">${cHtml}</span>  <span class="pk sway" style="animation-delay:-1.3s">${esc(r)}</span></span>`;
-  }).join("");
+  $("#scene").innerHTML = BIKE.map(runs =>
+    '<span class="r">' + runs.map(([c,t]) => `<span class="k${c}">${esc(t)}</span>`).join("") + '</span>'
+  ).join("");
 }
 
 /* ---------- block-letter title ---------- */
@@ -216,7 +141,7 @@ function fit(pre, avail, cap){
 }
 function fitAll(){
   const avail = Math.min(document.documentElement.clientWidth - 32, 640);
-  fit($("#scene"), avail, 15);
+  fit($("#scene"), avail, 12);
   const pres = [...document.querySelectorAll("#title pre")];
   pres.forEach(p => p.style.fontSize = "10px");
   const widest = Math.max(...pres.map(p => p.getBoundingClientRect().width));
