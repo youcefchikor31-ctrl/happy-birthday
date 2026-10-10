@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="ar">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0709">
+<title>Happy Birthday</title>
+<style>
+  :root{
+    --bg:#0b0709; --pink:#ff7eb6; --cream:#f4ead8; --flame:#ffb347; --dim:#8a7a80;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:radial-gradient(120% 80% at 50% 0%, #2a0f1c 0%, var(--bg) 60%);
+    color:var(--cream);
+    font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Courier New",monospace;
+    display:flex;flex-direction:column;align-items:center;
+    padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));
+    overflow-x:hidden;
+  }
+  /* subtle CRT scanlines */
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 1px,transparent 1px 3px);
+  }
+  #wrap{width:100%;max-width:640px;margin:auto 0;display:flex;flex-direction:column;align-items:center;gap:18px}
+  #prompt{align-self:flex-start;color:var(--dim);font-size:13px;min-height:1.4em;direction:ltr}
+  #prompt .cur{display:inline-block;width:.6em;height:1em;background:var(--cream);vertical-align:-2px;animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  pre{margin:0;line-height:1.05;white-space:pre;direction:ltr;display:inline-block}
+  #scene .r{display:block;visibility:hidden}
+  #scene .r.on{visibility:visible;animation:pop .25s ease-out}
+  @keyframes pop{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+  .pk{color:var(--pink);text-shadow:0 0 6px rgba(255,126,182,.55)}
+  .cr{color:var(--cream);text-shadow:0 0 5px rgba(244,234,216,.35)}
+  .fl{color:var(--flame);text-shadow:0 0 8px var(--flame),0 0 16px #ff7a18;animation:flick .18s infinite alternate}
+  @keyframes flick{from{opacity:.75;transform:translateY(0)}to{opacity:1;transform:translateY(-1px)}}
+  #balloonL,#balloonR{display:inline}
+  .sway{animation:sway 4s ease-in-out infinite alternate}
+
+  #title .r{display:block;visibility:hidden}
+  #title .r.on{visibility:visible}
+  #title{color:var(--pink);text-shadow:0 0 10px rgba(255,126,182,.6);display:flex;flex-direction:column;align-items:center;gap:10px}
+
+  #name{
+    font-size:clamp(28px,9vw,52px);font-weight:700;text-align:center;min-height:1.2em;
+    color:var(--cream);text-shadow:0 0 14px rgba(255,126,182,.7);
+    font-family:"Segoe UI",Tahoma,system-ui,sans-serif;direction:auto;
+  }
+  #msg{
+    text-align:center;font-size:clamp(16px,4.6vw,22px);line-height:1.7;max-width:30ch;
+    font-family:"Segoe UI",Tahoma,system-ui,sans-serif;color:#e7d9cc;min-height:3.4em;opacity:0;transition:opacity 1.2s;
+  }
+  #msg.on{opacity:1}
+  #again{
+    appearance:none;border:1px solid #5a3a47;background:transparent;color:var(--dim);
+    padding:8px 16px;border-radius:999px;font:inherit;font-size:13px;cursor:pointer;opacity:0;transition:opacity .8s;
+  }
+  #again.on{opacity:1}
+  #again:active{transform:scale(.97)}
+  canvas#fx{position:fixed;inset:0;pointer-events:none;width:100%;height:100%}
+  @media (prefers-reduced-motion:reduce){.fl,.sway{animation:none}}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="prompt"></div>
+  <pre id="scene" aria-label="birthday cake"></pre>
+  <div id="title" aria-label="Happy Birthday"></div>
+  <div id="name"></div>
+  <div id="msg" dir="auto"></div>
+  <button id="again" type="button">↻ replay</button>
+</div>
+<canvas id="fx"></canvas>
+
+<script>
+/* ============ عدّل هنا ============
+   الاسم + الرسالة (أو استعمل الرابط: ?name=سارة&msg=كل عام وأنت بخير)  */
+const CONFIG = {
+  name: "",                       // مثال: "سارة"  — اتركه فارغاً لإخفاء الاسم
+  message: "كل عام وأنت بخير 🎂\nأتمنى لك سنة مليئة بالفرح",
+  command: "node happy_birthday.js"
+};
+/* =================================== */
+
+const qs = new URLSearchParams(location.search);
+if (qs.get("name")) CONFIG.name = qs.get("name");
+if (qs.get("msg"))  CONFIG.message = qs.get("msg");
+
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let runId = 0;
+
+/* ---------- build the ASCII scene ---------- */
+function put(str, i, ch){ return str.slice(0,i) + ch + str.slice(i+1); }
+
+function buildCake(){
+  const FW = 36;                                   // field width
+  const pad = (str, off=0) => (" ".repeat(off) + str).padEnd(FW, " ");
+  const candles = [11,15,20,24];
+  let flames = " ".repeat(FW), sticks = " ".repeat(FW);
+  candles.forEach(x => { flames = put(flames,x,"§"); sticks = put(sticks,x,"|"); });
+
+  // top tier  (width 20, offset 8)
+  const T = 20, TO = 8;
+  let tTop = pad("." + "-".repeat(T-2) + ".", TO);
+  candles.forEach(x => tTop = put(tTop,x,"+"));
+  const tScal = pad("(" + "(_)".repeat(6) + ")", TO);
+  const tDeco = ["  o  .  o  .  o  .  o ", " .  o  .  o  .  o  .  "]
+                  .map(d => pad("(" + d.slice(0,T-2).padEnd(T-2) + ")", TO));
+  const tBot = pad("'" + "-".repeat(T-2) + "'", TO);
+
+  // bottom tier (width 32, offset 2)
+  const B = 32, BO = 2;
+  const bTop = pad("." + "-".repeat(B-2) + ".", BO);
+  const bScal = pad("(" + "(_)".repeat(10) + ")", BO);
+  const deco = [" *   .   *   .   *   .   *   .   ", "   .   *   .   *   .   *   .   * ",
+                " *   .   *   .   *   .   *   .   ", "   .   *   .   *   .   *   .   * "]
+               .map(d => pad("(" + d.slice(0,B-2).padEnd(B-2) + ")", BO));
+  const bBot = pad("'" + "-".repeat(B-2) + "'", BO);
+
+  // plate + stand
+  const plate = "(" + "_".repeat(FW-2) + ")";
+  const stand = pad("\\" + "_".repeat(10) + "/", 12);
+  const stem  = pad("||", 17);
+  const foot  = pad("(____)", 15);
+
+  return [flames, sticks, sticks, tTop, tScal, ...tDeco, tDeco[0], tBot,
+          bTop, bScal, ...deco, bBot, plate, stand, stem, foot];
+}
+
+function heart(offsetRows, total){
+  const H = [
+    "  ###   ###  ",
+    " ##### ##### ",
+    "#############",
+    "#############",
+    " ########### ",
+    "  #########  ",
+    "   #######   ",
+    "    #####    ",
+    "     ###     ",
+    "      #      ",
+    "      |      ",
+    "      )      ",
+    "      |      ",
+    "      (      ",
+    "      |      "
+  ];
+  const out = [];
+  for(let i=0;i<total;i++){
+    const k = i - offsetRows;
+    out.push(k>=0 && k<H.length ? H[k] : " ".repeat(13));
+  }
+  return out;
+}
+
+function buildScene(){
+  const cake = buildCake();
+  const total = Math.max(cake.length, 17);
+  const L = heart(0,total), R = heart(2,total);
+  const pad = Math.floor((total - cake.length)/2);   // vertically centre cake
+  const rows = [];
+  for(let i=0;i<total;i++){
+    const c = cake[i-pad] ?? " ".repeat(36);
+    rows.push({ l:L[i], c, r:R[i] });
+  }
+  return rows;
+}
+
+function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+function renderScene(){
+  const rows = buildScene();
+  const el = $("#scene");
+  el.innerHTML = rows.map(({l,c,r}) => {
+    const cHtml = esc(c).replace(/§/g,'<span class="fl">(</span>');
+    return `<span class="r"><span class="pk sway">${esc(l)}</span>  <span class="cr">${cHtml}</span>  <span class="pk sway" style="animation-delay:-1.3s">${esc(r)}</span></span>`;
+  }).join("");
+}
+
+/* ---------- block-letter title ---------- */
+const G = {
+  H:["#   #","#   #","#####","#   #","#   #"],
+  A:[" ### ","#   #","#####","#   #","#   #"],
+  P:["#### ","#   #","#### ","#    ","#    "],
+  Y:["#   #"," # # ","  #  ","  #  ","  #  "],
+  B:["#### ","#   #","#### ","#   #","#### "],
+  I:["###"," # "," # "," # ","###"],
+  R:["#### ","#   #","#### ","#  # ","#   #"],
+  T:["#####","  #  ","  #  ","  #  ","  #  "],
+  D:["#### ","#   #","#   #","#   #","#### "]
+};
+function word(w){
+  const out = ["","","","",""];
+  [...w].forEach((ch,i) => G[ch].forEach((line,k) => out[k] += (i?" ":"") + line));
+  return out;
+}
+function renderTitle(){
+  const t = $("#title");
+  t.innerHTML = "";
+  ["HAPPY","BIRTHDAY"].forEach(w => {
+    const pre = document.createElement("pre");
+    pre.innerHTML = word(w).map(l => `<span class="r">${l}</span>`).join("\n").replace(/\n/g,"");
+    pre.style.lineHeight = "1.0";
+    t.appendChild(pre);
+  });
+}
+
+/* ---------- fit fonts to the screen width ---------- */
+function fit(pre, avail, cap){
+  pre.style.fontSize = "10px";
+  const w = pre.getBoundingClientRect().width || 1;
+  pre.style.fontSize = Math.min(cap, 10*avail/w) + "px";
+}
+function fitAll(){
+  const avail = Math.min(document.documentElement.clientWidth - 32, 640);
+  fit($("#scene"), avail, 15);
+  const pres = [...document.querySelectorAll("#title pre")];
+  pres.forEach(p => p.style.fontSize = "10px");
+  const widest = Math.max(...pres.map(p => p.getBoundingClientRect().width));
+  const fs = Math.min(18, 10*avail/widest);
+  pres.forEach(p => p.style.fontSize = fs + "px");
+}
+addEventListener("resize", fitAll);
+
+/* ---------- confetti ---------- */
+const cv = $("#fx"), cx = cv.getContext("2d");
+let parts = [], raf = 0;
+function sizeCanvas(){ cv.width = innerWidth*devicePixelRatio; cv.height = innerHeight*devicePixelRatio; }
+addEventListener("resize", sizeCanvas); sizeCanvas();
+function burst(n=140){
+  const colors = ["#ff7eb6","#ffd166","#7bdff2","#b8f2a0","#f4ead8","#c3a6ff"];
+  const dpr = devicePixelRatio;
+  for(let i=0;i<n;i++){
+    parts.push({
+      x: Math.random()*cv.width, y: -20*dpr - Math.random()*cv.height*.4,
+      vx:(Math.random()-.5)*2.2*dpr, vy:(1.5+Math.random()*3)*dpr,
+      s:(4+Math.random()*6)*dpr, r:Math.random()*6, vr:(Math.random()-.5)*.3,
+      c:colors[i%colors.length]
+    });
+  }
+  if(!raf) raf = requestAnimationFrame(tick);
+}
+function tick(){
+  cx.clearRect(0,0,cv.width,cv.height);
+  parts.forEach(p => {
+    p.x += p.vx; p.y += p.vy; p.r += p.vr; p.vx += Math.sin(p.y/60)*.02;
+    cx.save(); cx.translate(p.x,p.y); cx.rotate(p.r);
+    cx.fillStyle = p.c; cx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2); cx.restore();
+  });
+  parts = parts.filter(p => p.y < cv.height + 30);
+  raf = parts.length ? requestAnimationFrame(tick) : (cx.clearRect(0,0,cv.width,cv.height),0);
+}
+
+/* ---------- the show ---------- */
+async function typeInto(el, text, speed, id){
+  for(const ch of text){
+    if(id !== runId) return false;
+    el.textContent += ch; await sleep(speed);
+  }
+  return true;
+}
+async function play(){
+  const id = ++runId;
+  parts = [];
+  renderScene(); renderTitle(); fitAll();
+  $("#name").textContent = ""; $("#msg").textContent = ""; $("#msg").classList.remove("on");
+  $("#again").classList.remove("on");
+
+  const pr = $("#prompt");
+  pr.innerHTML = '$ <span id="cmd"></span><span class="cur"></span>';
+  if(!await typeInto($("#cmd"), CONFIG.command, 45, id)) return;
+  await sleep(450); if(id !== runId) return;
+
+  // 1) scene, row by row (top → bottom)
+  for(const r of document.querySelectorAll("#scene .r")){
+    if(id !== runId) return;
+    r.classList.add("on"); await sleep(140);
+  }
+  await sleep(400);
+
+  // 2) title
+  for(const r of document.querySelectorAll("#title .r")){
+    if(id !== runId) return;
+    r.classList.add("on"); await sleep(120);
+  }
+  await sleep(300);
+  burst(); if(id !== runId) return;
+
+  // 3) name + message
+  if(CONFIG.name){ if(!await typeInto($("#name"), CONFIG.name, 90, id)) return; }
+  await sleep(300);
+  const m = $("#msg"); m.textContent = CONFIG.message; m.style.whiteSpace = "pre-line"; m.classList.add("on");
+  await sleep(1200); if(id !== runId) return;
+  burst(80);
+  $("#again").classList.add("on");
+}
+$("#again").addEventListener("click", play);
+document.fonts && document.fonts.ready ? document.fonts.ready.then(play) : play();
+</script>
+</body>
+</html>
